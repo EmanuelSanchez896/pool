@@ -1,0 +1,59 @@
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.ResultSet;
+
+public class test {
+    public static void main(String[] args) {
+        String dbUrl = "jdbc:postgresql://localhost:5432/pooltest";
+        String dbUser = "Emanuel896";
+        String dbPassword = "Emanuel896";
+        int maxConnections = 3;
+        		
+        		pool connectionPool = pool.getInstance(dbUrl, dbUser, dbPassword, maxConnections);
+
+        for (int i = 0; i < 200; i++) {
+            new Thread(() -> {
+                Connection connection = null;
+                while (connection == null) {
+                    try {
+                        connection = connectionPool.getConnection();
+                        System.out.println("Conexión obtenida por el hilo " + Thread.currentThread().getId());
+
+                        try (Statement statement = connection.createStatement();
+                             ResultSet resultSet = statement.executeQuery("SELECT nombre FROM pooltest.data WHERE nombre IS NOT NULL")) {
+
+                            while (resultSet.next()) {
+                                String dataText = resultSet.getString("nombre");
+                                System.out.println("Data Text: " + dataText);
+                            }
+                        }
+                        
+                        
+                        try {
+                            Thread.sleep(10000); // tiempo donde la session se mantiene durmiendo
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+
+                    } catch (RuntimeException | SQLException e) {
+                        System.out.println("Esperando para obtener una conexión...");
+                        try {
+                            Thread.sleep(5000); // tiempo para que vuelva a realizar una nueva peticion
+                        } catch (InterruptedException ie) {
+                            ie.printStackTrace();
+                        }
+                    } finally {
+                        if (connection != null) {
+                            try {
+                                connection.close();
+                            } catch (SQLException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+            }).start();
+        }
+    }
+}
